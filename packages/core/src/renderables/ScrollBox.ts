@@ -369,6 +369,39 @@ export class ScrollBoxRenderable extends BoxRenderable {
     // change will trigger the scrollTop setter which handles it
   }
 
+  public scrollChildIntoView(childId: string): void {
+    const child = this.content.findDescendantById(childId)
+    if (!child) return
+
+    const childTop = child.y
+    const childBottom = child.y + child.height
+    const viewportTop = this.viewport.y
+    const viewportBottom = this.viewport.y + this.viewport.height
+
+    let dy = 0
+    if (childTop < viewportTop) {
+      dy = childTop - viewportTop
+    } else if (childBottom > viewportBottom) {
+      dy = childBottom - viewportBottom
+    }
+
+    const childLeft = child.x
+    const childRight = child.x + child.width
+    const viewportLeft = this.viewport.x
+    const viewportRight = this.viewport.x + this.viewport.width
+
+    let dx = 0
+    if (childLeft < viewportLeft) {
+      dx = childLeft - viewportLeft
+    } else if (childRight > viewportRight) {
+      dx = childRight - viewportRight
+    }
+
+    if (dx !== 0 || dy !== 0) {
+      this.scrollBy({ x: dx, y: dy })
+    }
+  }
+
   public scrollTo(position: number | { x: number; y: number }): void {
     if (typeof position === "number") {
       this.scrollTop = position

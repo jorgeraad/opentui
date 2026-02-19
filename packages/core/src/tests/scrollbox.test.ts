@@ -1197,6 +1197,177 @@ console.log(processor.reduce((acc, val) => acc + val, 0))`
   })
 
   // Regression test for issue #530: edge case when content fits in viewport
+  test("scrollChildIntoView does nothing when child is already visible", async () => {
+    const scrollBox = new ScrollBoxRenderable(testRenderer, {
+      width: 40,
+      height: 10,
+    })
+
+    for (let i = 0; i < 5; i++) {
+      scrollBox.add(new BoxRenderable(testRenderer, { id: `child-${i}`, height: 1 }))
+    }
+    testRenderer.root.add(scrollBox)
+    await renderOnce()
+
+    expect(scrollBox.scrollTop).toBe(0)
+    scrollBox.scrollChildIntoView("child-2")
+    expect(scrollBox.scrollTop).toBe(0)
+  })
+
+  test("scrollChildIntoView scrolls down to reveal child below viewport", async () => {
+    const scrollBox = new ScrollBoxRenderable(testRenderer, {
+      width: 40,
+      height: 10,
+    })
+
+    for (let i = 0; i < 30; i++) {
+      scrollBox.add(new BoxRenderable(testRenderer, { id: `child-${i}`, height: 1 }))
+    }
+    testRenderer.root.add(scrollBox)
+    await renderOnce()
+
+    expect(scrollBox.scrollTop).toBe(0)
+    scrollBox.scrollChildIntoView("child-25")
+    await renderOnce()
+
+    const child = scrollBox.content.findDescendantById("child-25")!
+    expect(child.y + child.height).toBeLessThanOrEqual(scrollBox.viewport.y + scrollBox.viewport.height)
+    expect(child.y).toBeGreaterThanOrEqual(scrollBox.viewport.y)
+  })
+
+  test("scrollChildIntoView scrolls up to reveal child above viewport", async () => {
+    const scrollBox = new ScrollBoxRenderable(testRenderer, {
+      width: 40,
+      height: 10,
+    })
+
+    for (let i = 0; i < 30; i++) {
+      scrollBox.add(new BoxRenderable(testRenderer, { id: `child-${i}`, height: 1 }))
+    }
+    testRenderer.root.add(scrollBox)
+    await renderOnce()
+
+    scrollBox.scrollTo(20)
+    await renderOnce()
+    expect(scrollBox.scrollTop).toBe(20)
+
+    scrollBox.scrollChildIntoView("child-2")
+    await renderOnce()
+
+    const child = scrollBox.content.findDescendantById("child-2")!
+    expect(child.y).toBeGreaterThanOrEqual(scrollBox.viewport.y)
+    expect(child.y + child.height).toBeLessThanOrEqual(scrollBox.viewport.y + scrollBox.viewport.height)
+  })
+
+  test("scrollChildIntoView does nothing for nonexistent child", async () => {
+    const scrollBox = new ScrollBoxRenderable(testRenderer, {
+      width: 40,
+      height: 10,
+    })
+
+    for (let i = 0; i < 20; i++) {
+      scrollBox.add(new BoxRenderable(testRenderer, { id: `child-${i}`, height: 1 }))
+    }
+    testRenderer.root.add(scrollBox)
+    await renderOnce()
+
+    scrollBox.scrollTo(5)
+    await renderOnce()
+
+    const before = scrollBox.scrollTop
+    scrollBox.scrollChildIntoView("nonexistent")
+    expect(scrollBox.scrollTop).toBe(before)
+  })
+
+  test("scrollChildIntoView scrolls minimally to show child at bottom edge", async () => {
+    const scrollBox = new ScrollBoxRenderable(testRenderer, {
+      width: 40,
+      height: 10,
+    })
+
+    for (let i = 0; i < 30; i++) {
+      scrollBox.add(new BoxRenderable(testRenderer, { id: `child-${i}`, height: 1 }))
+    }
+    testRenderer.root.add(scrollBox)
+    await renderOnce()
+
+    scrollBox.scrollChildIntoView("child-12")
+    await renderOnce()
+
+    const child = scrollBox.content.findDescendantById("child-12")!
+    const viewportBottom = scrollBox.viewport.y + scrollBox.viewport.height
+    expect(child.y + child.height).toBe(viewportBottom)
+  })
+
+  test("scrollChildIntoView scrolls minimally to show child at top edge", async () => {
+    const scrollBox = new ScrollBoxRenderable(testRenderer, {
+      width: 40,
+      height: 10,
+    })
+
+    for (let i = 0; i < 30; i++) {
+      scrollBox.add(new BoxRenderable(testRenderer, { id: `child-${i}`, height: 1 }))
+    }
+    testRenderer.root.add(scrollBox)
+    await renderOnce()
+
+    scrollBox.scrollTo(20)
+    await renderOnce()
+
+    scrollBox.scrollChildIntoView("child-15")
+    await renderOnce()
+
+    const child = scrollBox.content.findDescendantById("child-15")!
+    expect(child.y).toBe(scrollBox.viewport.y)
+  })
+
+  test("scrollChildIntoView handles horizontal scrolling", async () => {
+    const scrollBox = new ScrollBoxRenderable(testRenderer, {
+      width: 20,
+      height: 10,
+      scrollX: true,
+    })
+
+    for (let i = 0; i < 5; i++) {
+      scrollBox.add(new BoxRenderable(testRenderer, { id: `child-${i}`, width: 20, height: 2 }))
+    }
+    const wideChild = new BoxRenderable(testRenderer, { id: "wide-child", width: 50, height: 2 })
+    scrollBox.add(wideChild)
+    testRenderer.root.add(scrollBox)
+    await renderOnce()
+
+    scrollBox.scrollLeft = 30
+    await renderOnce()
+
+    scrollBox.scrollChildIntoView("child-0")
+    await renderOnce()
+
+    const child = scrollBox.content.findDescendantById("child-0")!
+    expect(child.x).toBeGreaterThanOrEqual(scrollBox.viewport.x)
+  })
+
+  test("scrollChildIntoView finds nested descendants", async () => {
+    const scrollBox = new ScrollBoxRenderable(testRenderer, {
+      width: 40,
+      height: 10,
+    })
+
+    for (let i = 0; i < 30; i++) {
+      const wrapper = new BoxRenderable(testRenderer, { id: `wrapper-${i}`, height: 1 })
+      wrapper.add(new BoxRenderable(testRenderer, { id: `nested-${i}`, height: 1 }))
+      scrollBox.add(wrapper)
+    }
+    testRenderer.root.add(scrollBox)
+    await renderOnce()
+
+    scrollBox.scrollChildIntoView("nested-25")
+    await renderOnce()
+
+    const child = scrollBox.content.findDescendantById("nested-25")!
+    expect(child.y + child.height).toBeLessThanOrEqual(scrollBox.viewport.y + scrollBox.viewport.height)
+    expect(child.y).toBeGreaterThanOrEqual(scrollBox.viewport.y)
+  })
+
   test("resets _hasManualScroll for stickyStart=bottom when content fits in viewport (issue #530)", async () => {
     const scrollBox = new ScrollBoxRenderable(testRenderer, {
       width: 40,
